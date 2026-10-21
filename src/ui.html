@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DFS Browser</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.06);
+  --text:#e6edf3;--muted:#8b949e;--dim:#6e7681;--accent:#67e8f9;--ok:#34d399;--warn:#f5a623;--bad:#f87171;--violet:#a78bfa;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;overflow:hidden}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--panel)}::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+.mono{font-family:var(--mono)}
+.hidden{display:none!important}
+
+/* login */
+#login-screen{display:flex;align-items:center;justify-content:center;height:100%;padding:1rem;overflow:auto;
+  background:radial-gradient(1200px 600px at 20% -10%,rgba(103,232,249,.10),transparent 60%),radial-gradient(900px 500px at 110% 110%,rgba(167,139,250,.10),transparent 60%)}
+.login-card{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:2rem 1.6rem;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:1.6rem}
+.logo-box{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,rgba(103,232,249,.25),rgba(103,232,249,.06));border:1px solid rgba(103,232,249,.35);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:.7rem;letter-spacing:.04em}
+.logo-text{font-weight:600;font-size:1rem}.logo-text span{color:var(--accent)}
+.logo-ver{margin-left:auto;color:var(--dim);font-size:.72rem}
+h2{font-size:1.35rem;font-weight:700;margin-bottom:.4rem;letter-spacing:-.01em}
+.login-sub{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem;line-height:1.45}
+.field{margin-bottom:.9rem}
+.field label{display:block;font-size:.7rem;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.4rem}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:.6rem .8rem;color:var(--text);font-size:.88rem;outline:none}
+.field input:focus,.field select:focus{border-color:rgba(103,232,249,.6)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.key-row{display:flex;gap:.5rem}
+.key-upload{flex:1;background:var(--bg);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:.6rem .8rem;color:var(--muted);font-size:.85rem;display:flex;align-items:center;gap:8px;text-align:left}
+.key-upload:hover{border-color:rgba(103,232,249,.4);color:#c0c8e0}
+.key-upload.loaded{border-color:rgba(103,232,249,.5);color:var(--accent)}
+.btn-primary{width:100%;background:var(--accent);color:#020b10;border:none;border-radius:8px;padding:.72rem;font-size:.92rem;font-weight:600;margin-top:.4rem}
+.btn-primary:hover{opacity:.9}
+.login-err{color:var(--bad);font-size:.8rem;margin-top:.6rem;display:none}
+.notice{font-size:.75rem;color:var(--dim);margin-top:1rem;line-height:1.4}
+
+/* shell */
+#app{display:none;height:100%;flex-direction:column}
+#app.visible{display:flex}
+.topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 1rem;gap:.7rem;flex-shrink:0;min-width:0}
+.topbar .logo{margin:0}.topbar .logo-box{width:28px;height:28px;font-size:.6rem;border-radius:7px}
+.conn{color:var(--dim);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:28ch}
+.sep{width:1px;height:18px;background:rgba(255,255,255,.15)}
+.tabs{display:flex;gap:.25rem}
+.tab{background:transparent;border:1px solid transparent;color:var(--muted);border-radius:6px;padding:.3rem .7rem;font-size:.8rem}
+.tab.active{background:rgba(103,232,249,.1);border-color:rgba(103,232,249,.3);color:var(--accent)}
+.actions{display:flex;align-items:center;gap:.5rem;margin-left:auto}
+.btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:.32rem .75rem;color:var(--muted);font-size:.78rem;font-weight:500;display:flex;align-items:center;gap:5px}
+.btn:hover{background:rgba(255,255,255,.14);color:var(--text)}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#020b10;font-weight:600}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{color:var(--bad);background:transparent}
+.body{flex:1;display:flex;min-height:0}
+.main{flex:1;overflow:auto;padding:1.1rem 1.3rem;min-width:0}
+.crumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:.9rem}
+.crumb{color:var(--muted);font-size:.85rem;cursor:pointer;padding:2px 5px;border-radius:4px}
+.crumb:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.crumb.current{color:var(--text);cursor:default;background:none}
+.crumb-sep{color:var(--dim)}
+.info{color:var(--muted);font-size:.78rem;margin-left:auto}
+
+/* file table */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);padding:.55rem .9rem;background:var(--bg);border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+td{padding:.55rem .9rem;border-bottom:1px solid var(--line2);font-size:.82rem;color:var(--muted);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tbody tr.clickable{cursor:pointer}
+tbody tr.clickable:hover{background:rgba(255,255,255,.04)}
+tbody tr.selected{background:rgba(103,232,249,.07)}
+.r{text-align:right}
+.name{display:flex;align-items:center;gap:.6rem}
+.ficon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.62rem;font-weight:700;letter-spacing:.02em}
+.i-dir{background:rgba(245,166,35,.15);color:var(--warn)}
+.i-img{background:rgba(99,179,237,.15);color:#63b3ed}
+.i-text{background:rgba(167,139,250,.15);color:var(--violet)}
+.i-code{background:rgba(52,211,153,.15);color:var(--ok)}
+.i-arc{background:rgba(248,113,113,.15);color:var(--bad)}
+.i-link{background:rgba(103,232,249,.12);color:var(--accent)}
+.i-file{background:rgba(148,163,184,.12);color:var(--muted)}
+.fname{color:#c9d1d9;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;max-width:42ch}
+tr.dir .fname{color:var(--text);font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:600;padding:1px 6px;border-radius:99px;border:1px solid;letter-spacing:.02em}
+.b-enc{color:var(--violet);border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.08)}
+.b-ec{color:var(--ok);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08)}
+.b-plain{color:var(--muted);border-color:rgba(255,255,255,.15)}
+.b-link{color:var(--accent);border-color:rgba(103,232,249,.35)}
+.dev{font-family:var(--mono);font-size:.72rem;color:var(--dim)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.empty{text-align:center;padding:4rem 2rem;color:var(--dim)}
+@media(max-width:1100px){.c-atime,.c-ctime{display:none}}
+@media(max-width:760px){.c-dev,.c-chunks{display:none}.conn{display:none}}
+
+/* side panel */
+.side{width:430px;max-width:100%;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0;flex-shrink:0}
+.side-head{padding:1rem 1.1rem .7rem;border-bottom:1px solid var(--line)}
+.side-title{display:flex;align-items:center;gap:.6rem}
+.side-title .fname{font-size:.98rem;color:var(--text);font-weight:600;white-space:normal;word-break:break-all}
+.side-close{margin-left:auto;background:none;border:none;color:var(--dim);font-size:1.2rem;line-height:1}
+.side-close:hover{color:var(--text)}
+.side-path{font-family:var(--mono);font-size:.72rem;color:var(--dim);margin-top:.35rem;word-break:break-all}
+.side-tabs{display:flex;gap:.25rem;margin-top:.8rem}
+.side-body{flex:1;overflow:auto;padding:1rem 1.1rem}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:.35rem .9rem;font-size:.8rem;margin-bottom:1.1rem}
+.kv dt{color:var(--dim)}.kv dd{color:var(--text);word-break:break-all}
+h4{font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:.4rem 0 .6rem}
+.chunk{border:1px solid var(--line);border-radius:9px;padding:.6rem .7rem;margin-bottom:.55rem;background:var(--panel2)}
+.chunk-top{display:flex;align-items:center;gap:.4rem;font-size:.76rem;flex-wrap:wrap}
+.chunk-id{font-family:var(--mono);color:var(--text)}
+.shards{display:flex;gap:4px;margin-top:.5rem;flex-wrap:wrap}
+.shard{font-family:var(--mono);font-size:.64rem;padding:2px 6px;border-radius:5px;border:1px solid rgba(52,211,153,.35);color:var(--ok)}
+.shard.parity{border-color:rgba(245,166,35,.4);color:var(--warn)}
+.chunk-key{font-family:var(--mono);font-size:.66rem;color:var(--dim);margin-top:.35rem;word-break:break-all}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:.45rem;position:relative}
+.bar span{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,var(--accent),var(--violet));border-radius:3px}
+.vv{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1rem}
+.vv-row{display:flex;align-items:center;gap:.5rem;font-size:.78rem}
+.vv-row .mono{color:var(--text);font-size:.74rem}
+.vv-bar{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+.vv-bar span{display:block;height:100%;background:var(--accent)}
+.ver{display:flex;gap:.7rem;padding:.6rem 0;border-bottom:1px solid var(--line2);font-size:.8rem}
+.ver:last-child{border-bottom:none}
+.ver-rail{width:10px;display:flex;flex-direction:column;align-items:center}
+.ver-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);margin-top:3px}
+.ver.current .ver-dot{background:var(--ok);box-shadow:0 0 0 3px rgba(52,211,153,.2)}
+.ver-meta{color:var(--dim);font-size:.74rem;margin-top:2px}
+.preview-text{font-family:var(--mono);font-size:.76rem;line-height:1.5;color:#c9d1d9;white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:.8rem;max-height:none}
+.preview-img{max-width:100%;border-radius:9px;border:1px solid var(--line);display:block}
+.locked{border:1px dashed rgba(167,139,250,.4);border-radius:10px;padding:1.4rem;text-align:center;color:var(--violet);font-size:.85rem;line-height:1.5}
+.side-foot{padding:.8rem 1.1rem;border-top:1px solid var(--line);display:flex;gap:.5rem}
+@media(max-width:900px){.side{position:fixed;right:0;top:52px;bottom:0;z-index:50;box-shadow:-20px 0 60px rgba(0,0,0,.5)}}
+
+/* stats */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.8rem;margin-bottom:1.1rem}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.9rem 1rem}
+.stat-label{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.stat-value{font-size:1.55rem;font-weight:700;margin-top:.3rem;letter-spacing:-.01em}
+.stat-sub{font-size:.75rem;color:var(--muted);margin-top:.15rem}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:.9rem}
+.card-pad{padding:1rem 1.1rem}
+.layout-row{display:flex;align-items:center;gap:.7rem;margin:.45rem 0;font-size:.8rem}
+.layout-row .lbl{width:5.5rem;color:var(--text)}
+.layout-row .bar{flex:1;margin:0}
+
+/* modal, overlay, toast */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:1.6rem;width:100%;max-width:440px}
+.modal h3{font-size:1.02rem;margin-bottom:1rem}
+.drop{border:2px dashed rgba(103,232,249,.3);border-radius:10px;padding:2.2rem;text-align:center;cursor:pointer;margin-bottom:1rem;color:var(--muted);font-size:.85rem}
+.drop:hover,.drop.drag{border-color:rgba(103,232,249,.6);background:rgba(103,232,249,.05)}
+.drop small{display:block;color:var(--dim);margin-top:.35rem;font-size:.75rem}
+.overlay{position:fixed;inset:0;background:rgba(13,17,23,.75);z-index:200;display:none;align-items:center;justify-content:center;flex-direction:column;gap:1rem;color:var(--muted);font-size:.85rem}
+.overlay.show{display:flex}
+.spinner{width:18px;height:18px;border:2px solid rgba(103,232,249,.25);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:1.4rem;right:1.4rem;background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:.7rem 1.1rem;font-size:.82rem;z-index:300;transform:translateY(8px);opacity:0;transition:all .25s;pointer-events:none}
+.toast.show{transform:none;opacity:1}
+.toast.ok{border-color:rgba(52,211,153,.35);color:var(--ok)}
+.toast.err{border-color:rgba(248,113,113,.35);color:var(--bad)}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <form class="login-card" id="login-form" autocomplete="off">
+    <div class="logo">
+      <div class="logo-box">DFS</div>
+      <div class="logo-text">DFS <span>Browser</span></div>
+      <div class="logo-ver" id="version"></div>
+    </div>
+    <h2>Connect to a DFS volume</h2>
+    <p class="login-sub">Enter the S3 bucket that backs your DFS filesystem. Add the master key to open encrypted files.</p>
+    <div class="field"><label for="l-endpoint">S3 endpoint</label>
+      <input id="l-endpoint" type="text" placeholder="http://localhost:9000"/>
+      <select id="l-endpoint-select" class="hidden"></select>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="l-bucket">Bucket</label><input id="l-bucket" type="text" placeholder="dfs"/></div>
+      <div class="field"><label for="l-region">Region</label><input id="l-region" type="text" placeholder="us-east-1"/></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="l-access">Access key</label><input id="l-access" type="text" autocomplete="username"/></div>
+      <div class="field"><label for="l-secret">Secret key</label><input id="l-secret" type="password" autocomplete="current-password"/></div>
+    </div>
+    <div class="field">
+      <label>Master key <span style="opacity:.6;text-transform:none;letter-spacing:0">(optional, for encrypted files)</span></label>
+      <div class="key-row">
+        <button type="button" class="key-upload" id="key-btn">
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 7V5a5 5 0 0 0-10 0v2"/><rect x="1" y="7" width="18" height="12" rx="2"/><circle cx="10" cy="13" r="2"/></svg>
+          <span id="key-label">Choose master.key file</span>
+        </button>
+        <button type="button" class="btn" id="key-clear" title="Forget key">Clear</button>
+      </div>
+      <input type="file" id="key-file" class="hidden"/>
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <button class="btn-primary" type="submit">Connect</button>
+    <p class="notice">Credentials and the master key are sent to this DFS Browser server and kept in its memory for the session. Use it only over HTTPS or on localhost.</p>
+  </form>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="logo"><div class="logo-box">DFS</div><div class="logo-text">DFS <span>Browser</span></div></div>
+    <div class="sep"></div>
+    <div class="tabs">
+      <button class="tab active" data-view="files">Files</button>
+      <button class="tab" data-view="stats">Volume</button>
+    </div>
+    <div class="conn mono" id="conn"></div>
+    <div class="actions">
+      <button class="btn accent" id="btn-upload">
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 10V3M5 6l3-3 3 3"/><path d="M2 12h12"/></svg>Upload
+      </button>
+      <button class="btn" id="btn-refresh">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M13.5 2.5A7 7 0 1 0 14 9"/><path d="M14 2.5V6h-3.5"/></svg>Refresh
+      </button>
+      <button class="btn ghost" id="btn-logout">Disconnect</button>
+    </div>
+  </div>
+  <div class="body">
+    <div class="main">
+      <div id="view-files">
+        <div class="crumbs" id="crumbs"></div>
+        <div id="files"></div>
+      </div>
+      <div id="view-stats" class="hidden"></div>
+    </div>
+    <aside class="side hidden" id="side">
+      <div class="side-head">
+        <div class="side-title"><div class="ficon" id="side-icon"></div><div class="fname" id="side-name"></div><button class="side-close" id="side-close" title="Close">&times;</button></div>
+        <div class="side-path" id="side-path"></div>
+        <div class="side-tabs">
+          <button class="tab active" data-pane="details">Details</button>
+          <button class="tab" data-pane="versions">Versions</button>
+          <button class="tab" data-pane="preview">Preview</button>
+        </div>
+      </div>
+      <div class="side-body" id="side-body"></div>
+      <div class="side-foot"><button class="btn accent" id="side-download">Download</button></div>
+    </aside>
+  </div>
+</div>
+
+<div class="modal-bg" id="upload-modal">
+  <div class="modal">
+    <h3>Upload files</h3>
+    <div class="drop" id="drop">Drag files here or click to choose<small id="drop-sub"></small></div>
+    <input type="file" id="upload-file" class="hidden" multiple/>
+    <div style="display:flex;justify-content:flex-end"><button class="btn" id="upload-cancel">Cancel</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="loading"><div class="spinner"></div><div id="loading-text">Loading…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+let TOKEN = sessionStorage.getItem('dfs_token') || '';
+let MASTER_KEY_HEX = '';
+let CWD = '/';
+let CONFIG = {};
+let SELECTED = null;      // {path, entry}
+let PANE = 'details';
+
+// ── helpers ──────────────────────────────────────────────────────────────
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmtSize(b) {
+  if (!b) return '0 B';
+  const u = ['B','KB','MB','GB','TB']; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (i ? b.toFixed(1) : b) + ' ' + u[i];
+}
+function fmtDate(ms, long) {
+  if (!ms) return '—';
+  const d = new Date(ms), now = new Date();
+  const opts = {day:'2-digit', month:'short'};
+  if (long || d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString('en-GB', opts) + ' ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+}
+function ago(ms) {
+  const s = (Date.now() - ms) / 1000;
+  if (s < 90) return 'just now';
+  if (s < 5400) return Math.round(s/60) + ' min ago';
+  if (s < 129600) return Math.round(s/3600) + ' h ago';
+  return Math.round(s/86400) + ' days ago';
+}
+const joinPath = (...p) => ('/' + p.join('/')).replace(/\/+/g, '/');
+const DEV_COLORS = ['#67e8f9','#a78bfa','#34d399','#f5a623','#f472b6','#60a5fa'];
+const devColor = id => DEV_COLORS[parseInt(String(id).slice(0, 6), 16) % DEV_COLORS.length];
+const devTag = id => `<span class="dev"><span class="dot" style="background:${devColor(id)}"></span>${esc(String(id).slice(0, 8))}</span>`;
+
+function fileKind(name, kind) {
+  if (kind === 'Directory') return ['i-dir', 'DIR'];
+  if (kind === 'Symlink') return ['i-link', 'LNK'];
+  const ext = (name.includes('.') ? name.split('.').pop() : '').toLowerCase();
+  if (['png','jpg','jpeg','gif','webp','svg','bmp','avif'].includes(ext)) return ['i-img', 'IMG'];
+  if (['txt','md','log','csv','json','yaml','yml','toml','xml','ini','conf'].includes(ext)) return ['i-text', ext.slice(0,4).toUpperCase()];
+  if (['rs','py','js','ts','go','c','h','cpp','java','sh','rb','html','css'].includes(ext)) return ['i-code', ext.slice(0,4).toUpperCase()];
+  if (['zip','tar','gz','bz2','xz','zst','7z','rar'].includes(ext)) return ['i-arc', ext.slice(0,3).toUpperCase()];
+  return ['i-file', (ext || 'BIN').slice(0,4).toUpperCase()];
+}
+const previewKind = name => {
+  const ext = name.split('.').pop().toLowerCase();
+  if (['png','jpg','jpeg','gif','webp','svg','bmp','avif'].includes(ext)) return 'image';
+  if (['txt','md','log','csv','json','yaml','yml','toml','xml','ini','conf','rs','py','js','ts','go','c','h','cpp','java','sh','rb','html','css'].includes(ext)) return 'text';
+  return null;
+};
+
+function loading(on, text) { $('loading-text').textContent = text || 'Loading…'; $('loading').classList.toggle('show', !!on); }
+function toast(msg, type) {
+  const el = $('toast'); el.textContent = msg; el.className = 'toast ' + (type || 'ok') + ' show';
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 3500);
+}
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({'x-dfs-token': TOKEN}, opts.headers || {});
+  const r = await fetch(path, opts);
+  if (r.status === 401 && !path.startsWith('/api/login')) { logout(true); throw new Error('session expired'); }
+  return r;
+}
+async function apiJson(path, opts) {
+  const r = await api(path, opts);
+  const data = await r.json().catch(() => ({error: 'HTTP ' + r.status}));
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+// ── login ────────────────────────────────────────────────────────────────
+async function loadConfig() {
+  try { CONFIG = await (await fetch('/api/config')).json(); } catch { CONFIG = {}; }
+  $('version').textContent = CONFIG.version ? 'v' + CONFIG.version : '';
+  $('l-bucket').value = CONFIG.default_bucket || 'dfs';
+  $('l-region').value = CONFIG.default_region || 'us-east-1';
+  const allowed = CONFIG.allowed_endpoints || [];
+  if (allowed.length) {
+    const sel = $('l-endpoint-select');
+    sel.innerHTML = allowed.map(e => `<option>${esc(e)}</option>`).join('');
+    if (CONFIG.default_endpoint) sel.value = CONFIG.default_endpoint.toLowerCase().replace(/\/$/, '');
+    sel.classList.remove('hidden'); $('l-endpoint').classList.add('hidden');
+  } else {
+    $('l-endpoint').value = CONFIG.default_endpoint || '';
+  }
+  $('btn-upload').classList.toggle('hidden', !!CONFIG.read_only);
+}
+const endpointValue = () => ($('l-endpoint-select').classList.contains('hidden') ? $('l-endpoint') : $('l-endpoint-select')).value.trim();
+
+$('key-btn').onclick = () => $('key-file').click();
+$('key-clear').onclick = () => { MASTER_KEY_HEX = ''; $('key-file').value = ''; $('key-label').textContent = 'Choose master.key file'; $('key-btn').classList.remove('loaded'); };
+$('key-file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const buf = new Uint8Array(ev.target.result);
+    if (buf.length !== 32) { showErr('A DFS master key file is exactly 32 bytes.'); return; }
+    MASTER_KEY_HEX = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+    $('key-label').textContent = f.name + ' (32 bytes)';
+    $('key-btn').classList.add('loaded');
+  };
+  reader.readAsArrayBuffer(f);
+});
+
+$('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const body = {
+    endpoint: endpointValue(), bucket: $('l-bucket').value.trim(), region: $('l-region').value.trim(),
+    access_key: $('l-access').value.trim(), secret_key: $('l-secret').value,
+    master_key_hex: MASTER_KEY_HEX || undefined,
+  };
+  if (!body.endpoint || !body.bucket || !body.access_key || !body.secret_key) { showErr('Please fill in the endpoint, bucket and both keys.'); return; }
+  loading(true, 'Connecting…');
+  try {
+    const r = await fetch('/api/login', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)});
+    const res = await r.json().catch(() => ({error: 'HTTP ' + r.status}));
+    if (!r.ok) throw new Error(res.error);
+    TOKEN = res.token;
+    sessionStorage.setItem('dfs_token', TOKEN);
+    sessionStorage.setItem('dfs_conn', body.endpoint + '/' + body.bucket + (res.encrypted ? '  · key loaded' : ''));
+    $('l-secret').value = ''; MASTER_KEY_HEX = '';
+    showApp();
+  } catch (err) { showErr(err.message); }
+  finally { loading(false); }
+});
+function showErr(msg) { const el = $('login-err'); el.textContent = msg; el.style.display = 'block'; }
+
+// ── app shell ────────────────────────────────────────────────────────────
+function showApp() {
+  $('login-screen').style.display = 'none';
+  $('app').classList.add('visible');
+  $('conn').textContent = sessionStorage.getItem('dfs_conn') || '';
+  const start = decodeURIComponent((location.hash || '#/').slice(1)) || '/';
+  navigate(start).catch(() => navigate('/'));
+}
+document.querySelectorAll('.topbar .tab').forEach(t => t.onclick = () => setView(t.dataset.view));
+function setView(v) {
+  document.querySelectorAll('.topbar .tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  $('view-files').classList.toggle('hidden', v !== 'files');
+  $('view-stats').classList.toggle('hidden', v !== 'stats');
+  if (v === 'stats') { closeSide(); loadStats(); }
+}
+$('btn-refresh').onclick = () => $('view-stats').classList.contains('hidden') ? navigate(CWD) : loadStats();
+$('btn-logout').onclick = () => logout();
+
+async function logout(expired) {
+  if (!expired) { try { await fetch('/api/logout', {method: 'POST', headers: {'x-dfs-token': TOKEN}}); } catch {} }
+  TOKEN = ''; sessionStorage.removeItem('dfs_token'); sessionStorage.removeItem('dfs_conn');
+  closeSide();
+  $('app').classList.remove('visible');
+  $('login-screen').style.display = 'flex';
+  if (expired) showErr('Your session expired. Please connect again.');
+}
+
+// ── browsing ─────────────────────────────────────────────────────────────
+let ENTRIES = [];
+async function navigate(path) {
+  loading(true);
+  try {
+    const data = await apiJson('/api/ls?path=' + encodeURIComponent(path));
+    CWD = path; ENTRIES = data.entries || [];
+    history.replaceState(null, '', '#' + encodeURI(path));
+    renderCrumbs(path); renderFiles();
+    setView('files');
+  } catch (e) { toast(e.message, 'err'); throw e; }
+  finally { loading(false); }
+}
+function renderCrumbs(path) {
+  const parts = path.split('/').filter(Boolean);
+  let html = `<span class="crumb ${parts.length ? '' : 'current'}" data-path="/">root</span>`, acc = '';
+  parts.forEach((p, i) => {
+    acc += '/' + p;
+    html += `<span class="crumb-sep">/</span><span class="crumb ${i === parts.length - 1 ? 'current' : ''}" data-path="${esc(acc)}">${esc(p)}</span>`;
+  });
+  const dirs = ENTRIES.filter(e => e.kind === 'Directory').length, files = ENTRIES.length - dirs;
+  const bytes = ENTRIES.filter(e => e.kind === 'File').reduce((s, f) => s + f.size, 0);
+  html += `<span class="info">${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''} · ${fmtSize(bytes)}</span>`;
+  $('crumbs').innerHTML = html;
+}
+$('crumbs').addEventListener('click', e => { const c = e.target.closest('.crumb'); if (c && !c.classList.contains('current')) navigate(c.dataset.path); });
+
+function renderFiles() {
+  if (!ENTRIES.length) { $('files').innerHTML = `<div class="card"><div class="empty">This folder is empty</div></div>`; return; }
+  const rows = ENTRIES.map((e, i) => {
+    const [cls, label] = fileKind(e.name, e.kind);
+    const isDir = e.kind === 'Directory';
+    const badges = [];
+    if (e.kind === 'Symlink') badges.push('<span class="badge b-link">symlink</span>');
+    if (e.encrypted) badges.push('<span class="badge b-enc">encrypted</span>');
+    const sel = SELECTED && SELECTED.entry.id === e.id ? ' selected' : '';
+    return `<tr class="clickable ${isDir ? 'dir' : ''}${sel}" data-i="${i}">
+      <td><div class="name"><div class="ficon ${cls}">${label}</div><span class="fname">${esc(e.name)}</span>${badges.join(' ')}</div></td>
+      <td class="r">${isDir ? '—' : fmtSize(e.size)}</td>
+      <td class="r c-chunks">${isDir ? '' : e.chunks}</td>
+      <td>${fmtDate(e.mtime_ms)}</td>
+      <td class="c-ctime">${fmtDate(e.ctime_ms)}</td>
+      <td class="c-atime">${fmtDate(e.atime_ms)}</td>
+      <td class="c-dev">${(e.devices || []).map(devTag).join(' ') || '—'}</td>
+    </tr>`;
+  }).join('');
+  $('files').innerHTML = `<div class="card"><table>
+    <thead><tr><th>Name</th><th class="r">Size</th><th class="r c-chunks">Chunks</th><th>Modified</th><th class="c-ctime">Changed</th><th class="c-atime">Accessed</th><th class="c-dev">Written by</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+$('files').addEventListener('click', ev => {
+  const tr = ev.target.closest('tr[data-i]'); if (!tr) return;
+  const e = ENTRIES[+tr.dataset.i];
+  const path = joinPath(CWD, e.name);
+  if (e.kind === 'Directory') navigate(path); else openSide(path, e);
+});
+
+// ── side panel ───────────────────────────────────────────────────────────
+function openSide(path, entry) {
+  SELECTED = {path, entry, stat: null};
+  const [cls, label] = fileKind(entry.name, entry.kind);
+  $('side-icon').className = 'ficon ' + cls; $('side-icon').textContent = label;
+  $('side-name').textContent = entry.name; $('side-path').textContent = path;
+  $('side-download').classList.toggle('hidden', entry.kind !== 'File');
+  $('side').classList.remove('hidden');
+  renderFiles();
+  setPane(PANE === 'preview' && !previewKind(entry.name) ? 'details' : PANE);
+}
+function closeSide() { SELECTED = null; $('side').classList.add('hidden'); if (ENTRIES.length) renderFiles(); }
+$('side-close').onclick = closeSide;
+document.querySelectorAll('.side-tabs .tab').forEach(t => t.onclick = () => setPane(t.dataset.pane));
+$('side-download').onclick = () => SELECTED && downloadFile(SELECTED.path, SELECTED.entry.name);
+
+function setPane(p) {
+  PANE = p;
+  document.querySelectorAll('.side-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.pane === p));
+  ({details: paneDetails, versions: paneVersions, preview: panePreview})[p]();
+}
+const body = () => $('side-body');
+const spinner = () => { body().innerHTML = '<div style="display:flex;justify-content:center;padding:2rem"><div class="spinner"></div></div>'; };
+
+async function getStat() {
+  if (!SELECTED.stat) SELECTED.stat = await apiJson('/api/stat?path=' + encodeURIComponent(SELECTED.path));
+  return SELECTED.stat;
+}
+
+async function paneDetails() {
+  const sel = SELECTED; spinner();
+  let s; try { s = await getStat(); } catch (e) { body().innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (sel !== SELECTED || PANE !== 'details') return;
+  const enc = s.chunks.filter(c => c.encrypted).length;
+  const layouts = [...new Set(s.chunks.map(c => c.storage === 'local' ? 'local only' : (c.ec_m ? `RS ${c.ec_k}+${c.ec_m}` : 'single copy')))];
+  let html = `<dl class="kv">
+    <dt>Kind</dt><dd>${esc(s.kind)}${s.symlink_target ? ' → <span class="mono">' + esc(s.symlink_target) + '</span>' : ''}</dd>
+    <dt>Size</dt><dd>${fmtSize(s.size)} <span style="color:var(--dim)">(${s.size.toLocaleString('en')} bytes)</span></dd>
+    <dt>File ID</dt><dd class="mono">${esc(s.id)}</dd>
+    <dt>Mode</dt><dd class="mono">${esc(s.mode)} · uid ${s.uid} · gid ${s.gid}</dd>
+    <dt>Modified</dt><dd>${fmtDate(s.mtime_ms, true)} <span style="color:var(--dim)">(${ago(s.mtime_ms)})</span></dd>
+    <dt>Changed</dt><dd>${fmtDate(s.ctime_ms, true)}</dd>
+    <dt>Accessed</dt><dd>${fmtDate(s.atime_ms, true)}</dd>
+    ${s.kind === 'File' ? `<dt>Storage</dt><dd>${s.chunk_count} chunk${s.chunk_count !== 1 ? 's' : ''} · ${esc(layouts.join(', ') || '—')}</dd>
+    <dt>Encryption</dt><dd>${enc ? `<span class="badge b-enc">AES-256-GCM</span> ${enc}/${s.chunks.length} chunks${s.can_decrypt ? '' : ' · <span style="color:var(--bad)">no key in this session</span>'}` : '<span class="badge b-plain">none</span>'}</dd>` : ''}
+    ${s.xattrs.length ? `<dt>xattrs</dt><dd class="mono">${s.xattrs.map(esc).join(', ')}</dd>` : ''}
+  </dl>`;
+  const clocks = Object.entries(s.version_vector);
+  if (clocks.length) {
+    const max = Math.max(...clocks.map(c => c[1]));
+    html += `<h4>Version vector</h4><div class="vv">` + clocks.sort((a, b) => b[1] - a[1]).map(([dev, n]) =>
+      `<div class="vv-row">${devTag(dev)}<div class="vv-bar"><span style="width:${(n / max * 100).toFixed(0)}%;background:${devColor(dev)}"></span></div><span class="mono">${n} write${n !== 1 ? 's' : ''}</span></div>`).join('') + `</div>`;
+  }
+  if (s.chunks.length) {
+    html += `<h4>Chunks</h4>` + s.chunks.map(c => {
+      const pct = s.size ? c.offset / s.size * 100 : 0, w = s.size ? Math.max(c.length / s.size * 100, 1) : 100;
+      const shards = c.shards.map(sh => `<span class="shard ${sh.index >= c.ec_k ? 'parity' : ''}" title="${esc(sh.s3_key)}">${sh.index >= c.ec_k ? 'P' : 'D'}${sh.index}</span>`).join('');
+      return `<div class="chunk">
+        <div class="chunk-top"><span class="chunk-id">${esc(c.chunk_id.slice(0, 8))}…</span>
+          <span style="color:var(--dim)">@ ${fmtSize(c.offset)} · ${fmtSize(c.length)}</span>
+          ${c.ec_m ? `<span class="badge b-ec">RS ${c.ec_k}+${c.ec_m}</span>` : ''}${c.encrypted ? '<span class="badge b-enc">encrypted</span>' : ''}${c.storage === 'local' ? '<span class="badge b-plain">local only</span>' : ''}</div>
+        <div class="bar"><span style="left:${pct}%;width:${w}%"></span></div>
+        ${c.shards.length > 1 ? `<div class="shards">${shards}</div>` : ''}
+        <div class="chunk-key">${esc(c.shards.length === 1 ? c.shards[0].s3_key : 'sha256 ' + c.sha256.slice(0, 16) + '…')}</div>
+      </div>`;
+    }).join('') + (s.chunk_count > s.chunks.length ? `<div class="empty">+ ${s.chunk_count - s.chunks.length} more chunks</div>` : '');
+  }
+  body().innerHTML = html;
+}
+
+async function paneVersions() {
+  const sel = SELECTED; spinner();
+  let v, s;
+  try { [v, s] = await Promise.all([apiJson('/api/versions?path=' + encodeURIComponent(sel.path)), getStat()]); }
+  catch (e) { body().innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (sel !== SELECTED || PANE !== 'versions') return;
+  let html = `<div class="ver current"><div class="ver-rail"><div class="ver-dot"></div></div><div><div><b>Current</b> · ${fmtSize(s.size)}</div>
+    <div class="ver-meta">${fmtDate(s.mtime_ms, true)} · ${s.chunk_count} chunk${s.chunk_count !== 1 ? 's' : ''} · ${s.devices.map(devTag).join(' ')}</div></div></div>`;
+  if (!v.versions.length) html += `<div class="empty" style="padding:2rem 1rem">No saved versions under <span class="mono">meta/versions/</span> for this file.</div>`;
+  html += v.versions.map(x => x.error
+    ? `<div class="ver"><div class="ver-rail"><div class="ver-dot" style="background:var(--bad)"></div></div><div><div>seq ${x.seq}</div><div class="ver-meta">${esc(x.error)}</div></div></div>`
+    : `<div class="ver"><div class="ver-rail"><div class="ver-dot"></div></div><div><div>seq ${x.seq} · ${fmtSize(x.size)} ${x.encrypted ? '<span class="badge b-enc">encrypted</span>' : ''}</div>
+       <div class="ver-meta">${fmtDate(x.mtime_ms, true)} (${ago(x.mtime_ms)}) · saved by ${devTag(x.device)}</div>
+       <div class="chunk-key">${esc(x.key)}</div></div></div>`).join('');
+  if (v.total > v.versions.length) html += `<div class="empty">${v.total - v.versions.length} older versions not shown</div>`;
+  body().innerHTML = html;
+}
+
+const PREVIEW_LIMIT = 2 * 1024 * 1024;
+async function panePreview() {
+  const sel = SELECTED, kind = previewKind(sel.entry.name);
+  if (sel.entry.kind !== 'File' || !kind) { body().innerHTML = `<div class="empty">No preview for this file type.</div>`; return; }
+  if (sel.entry.size > PREVIEW_LIMIT) { body().innerHTML = `<div class="empty">File is larger than ${fmtSize(PREVIEW_LIMIT)}; download it instead.</div>`; return; }
+  spinner();
+  const r = await api('/api/download?inline=1&path=' + encodeURIComponent(sel.path)).catch(e => ({ok: false, json: async () => ({error: e.message})}));
+  if (sel !== SELECTED || PANE !== 'preview') return;
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    body().innerHTML = sel.entry.encrypted
+      ? `<div class="locked"><b>Encrypted file</b><br>${esc(e.error || '')}<br><span style="color:var(--dim)">The chunks are AES-256-GCM ciphertext in S3; reconnect with the master key to read them.</span></div>`
+      : `<div class="empty">${esc(e.error || 'Preview failed')}</div>`;
+    return;
+  }
+  const blob = await r.blob();
+  if (kind === 'image') {
+    // Rendered through <img>, so scripts inside SVG files never run.
+    const url = URL.createObjectURL(blob.type ? blob : new Blob([blob], {type: 'image/svg+xml'}));
+    body().innerHTML = `<img class="preview-img" alt="" src="${url}"/>`;
+  } else {
+    const pre = document.createElement('pre'); pre.className = 'preview-text';
+    pre.textContent = await blob.text();
+    body().innerHTML = ''; body().appendChild(pre);
+  }
+}
+
+async function downloadFile(path, name) {
+  loading(true, 'Downloading ' + name + '…');
+  try {
+    const r = await api('/api/download?path=' + encodeURIComponent(path));
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'Download failed'); }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast('Downloaded ' + name);
+  } catch (e) { toast(e.message, 'err'); }
+  finally { loading(false); }
+}
+
+// ── volume stats ─────────────────────────────────────────────────────────
+async function loadStats() {
+  const v = $('view-stats'); v.innerHTML = '<div style="display:flex;justify-content:center;padding:3rem"><div class="spinner"></div></div>';
+  let s; try { s = await apiJson('/api/stats'); } catch (e) { v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const totalLayout = Object.values(s.layouts).reduce((a, b) => a + b, 0) || 1;
+  const encPct = s.chunks ? Math.round(s.encrypted_chunks / s.chunks * 100) : 0;
+  v.innerHTML = `
+    <div class="cards">
+      <div class="stat"><div class="stat-label">Files</div><div class="stat-value">${s.files.toLocaleString('en')}</div><div class="stat-sub">${s.directories} folders${s.symlinks ? ' · ' + s.symlinks + (s.symlinks === 1 ? ' symlink' : ' symlinks') : ''}</div></div>
+      <div class="stat"><div class="stat-label">Logical size</div><div class="stat-value">${fmtSize(s.bytes)}</div><div class="stat-sub">${esc(s.bucket)} @ <span class="mono">${esc(s.endpoint)}</span></div></div>
+      <div class="stat"><div class="stat-label">Chunks</div><div class="stat-value">${s.chunks.toLocaleString('en')}</div><div class="stat-sub">${s.local_only_chunks ? s.local_only_chunks + ' not yet uploaded' : 'all in S3'}</div></div>
+      <div class="stat"><div class="stat-label">Encrypted</div><div class="stat-value">${encPct}%</div><div class="stat-sub">${s.encrypted_chunks} of ${s.chunks} chunks</div></div>
+      <div class="stat"><div class="stat-label">Devices</div><div class="stat-value">${s.devices.length}</div><div class="stat-sub">with a metadata snapshot</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><table>
+        <thead><tr><th>Device</th><th>Snapshot</th><th class="r">Inodes</th><th class="r">Size</th><th class="r">Writes</th></tr></thead>
+        <tbody>${s.devices.map(d => `<tr><td>${devTag(d.device_id)} <span class="mono" style="color:var(--dim);font-size:.68rem">${esc(d.device_id.slice(8))}</span></td>
+          <td>${ago(d.snapshot_ms)}</td><td class="r">${d.inodes}</td><td class="r">${fmtSize(d.snapshot_bytes)}</td><td class="r">${d.inodes_written}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No device snapshots</td></tr>'}</tbody>
+      </table></div>
+      <div class="card card-pad"><h4>Chunk layout</h4>
+        ${Object.entries(s.layouts).map(([k, n]) => {
+          const [dk, pm] = k.split('+'); const label = pm === '0' ? (dk === '1' ? 'single copy' : `${dk} stripes`) : `RS ${dk}+${pm}`;
+          return `<div class="layout-row"><span class="lbl">${label}</span><div class="bar"><span style="left:0;width:${(n / totalLayout * 100).toFixed(1)}%"></span></div><span class="mono">${n}</span></div>`;
+        }).join('') || '<div class="empty">No chunks</div>'}
+        <h4 style="margin-top:1.1rem">Largest files</h4>
+        ${s.largest.map(f => `<div class="layout-row"><span class="mono" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.74rem;color:var(--text)">${esc(f.path)}</span><span>${fmtSize(f.size)}</span></div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ── upload ───────────────────────────────────────────────────────────────
+$('btn-upload').onclick = () => { $('drop-sub').textContent = (sessionStorage.getItem('dfs_conn') || '').includes('key loaded') ? 'Files are encrypted with the session master key before they reach S3.' : 'Files are stored unencrypted (no master key in this session).'; $('upload-modal').classList.add('open'); };
+$('upload-cancel').onclick = () => $('upload-modal').classList.remove('open');
+$('drop').onclick = () => $('upload-file').click();
+$('drop').ondragover = e => { e.preventDefault(); $('drop').classList.add('drag'); };
+$('drop').ondragleave = () => $('drop').classList.remove('drag');
+$('drop').ondrop = e => { e.preventDefault(); $('drop').classList.remove('drag'); uploadFiles(e.dataTransfer.files); };
+$('upload-file').onchange = e => uploadFiles(e.target.files);
+async function uploadFiles(list) {
+  $('upload-modal').classList.remove('open');
+  for (const file of list) {
+    loading(true, 'Uploading ' + file.name + '…');
+    try {
+      await apiJson('/api/upload?path=' + encodeURIComponent(joinPath(CWD, file.name)), {method: 'POST', headers: {'content-type': 'application/octet-stream'}, body: await file.arrayBuffer()});
+      toast(file.name + ' uploaded');
+    } catch (e) { toast('Upload failed: ' + e.message, 'err'); }
+  }
+  loading(false);
+  $('upload-file').value = '';
+  navigate(CWD);
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSide(); $('upload-modal').classList.remove('open'); } });
+loadConfig().then(() => { if (TOKEN) showApp(); });
+</script>
+</body>
+</html>

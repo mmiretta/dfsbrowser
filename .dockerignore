@@ -1,0 +1,6 @@
+target/
+.git/
+.env
+docs/
+*.md
+!demo/content/*.md

@@ -1,0 +1,55 @@
+# Production:  docker compose up -d --build
+# Demo:        docker compose --env-file demo/demo.env --profile demo up -d --build
+#              (adds a throwaway MinIO seeded with a synthetic DFS volume)
+# Settings come from .env (see .env.example).
+
+services:
+  dfs-browser:
+    build: .
+    image: dfs-browser:${DFS_BROWSER_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${DFS_BROWSER_HOST_BIND:-127.0.0.1}:${DFS_BROWSER_PORT:-8888}:8888"
+    environment:
+      DFS_BROWSER_AUTH_USER: ${DFS_BROWSER_AUTH_USER:-}
+      DFS_BROWSER_AUTH_PASSWORD: ${DFS_BROWSER_AUTH_PASSWORD:-}
+      DFS_BROWSER_ALLOWED_ENDPOINTS: ${DFS_BROWSER_ALLOWED_ENDPOINTS:-}
+      DFS_BROWSER_DEFAULT_ENDPOINT: ${DFS_BROWSER_DEFAULT_ENDPOINT:-}
+      DFS_BROWSER_DEFAULT_BUCKET: ${DFS_BROWSER_DEFAULT_BUCKET:-dfs}
+      DFS_BROWSER_DEFAULT_REGION: ${DFS_BROWSER_DEFAULT_REGION:-us-east-1}
+      DFS_BROWSER_READ_ONLY: ${DFS_BROWSER_READ_ONLY:-false}
+      DFS_BROWSER_SESSION_TTL_SECS: ${DFS_BROWSER_SESSION_TTL_SECS:-43200}
+      DFS_BROWSER_MAX_FILE_MB: ${DFS_BROWSER_MAX_FILE_MB:-512}
+      RUST_LOG: ${RUST_LOG:-dfs_browser=info,actix_web=warn}
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  # ── demo profile ──────────────────────────────────────────────────────────
+  demo-minio:
+    profiles: [demo]
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${DEMO_MINIO_USER:-demo-admin}
+      MINIO_ROOT_PASSWORD: ${DEMO_MINIO_PASSWORD:-change-me-demo-only}
+    volumes:
+      - demo-data:/data
+    # Not published on the host: only the browser and the seeder talk to it.
+
+  demo-seed:
+    profiles: [demo]
+    image: dfs-browser:${DFS_BROWSER_TAG:-latest}
+    pull_policy: never    # built by the dfs-browser service above
+    depends_on: [demo-minio]
+    entrypoint: ["/usr/local/bin/dfs-browser-demo-seed"]
+    environment:
+      DFS_DEMO_ENDPOINT: http://demo-minio:9000
+      DFS_DEMO_BUCKET: dfs
+      DFS_DEMO_ACCESS_KEY: ${DEMO_MINIO_USER:-demo-admin}
+      DFS_DEMO_SECRET_KEY: ${DEMO_MINIO_PASSWORD:-change-me-demo-only}
+    restart: "no"
+
+volumes:
+  demo-data:
